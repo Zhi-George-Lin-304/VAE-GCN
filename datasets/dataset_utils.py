@@ -11,7 +11,7 @@ class MolecularDataset(Dataset):
         data = pd.read_csv(csv_file).dropna(subset=['SMILES'])
         data = data[data['SMILES'].apply(lambda x: isinstance(x, str))]
 
-        self.smiles = []
+        self.smiles_dict = {}  # Store SMILES separately
         self.targets = []
         self.max_atoms = max_atoms
 
@@ -19,16 +19,16 @@ class MolecularDataset(Dataset):
             smiles = row['SMILES']
             mol = Chem.MolFromSmiles(smiles)
             if mol:
-                self.smiles.append(smiles)
+                self.smiles_dict[i] = smiles  # Store smiles with index
                 self.targets.append(row[target_col])
 
         self.targets = torch.tensor(self.targets, dtype=torch.float32)
 
     def __len__(self):
-        return len(self.smiles)
+        return len(self.smiles_dict)  # Use the number of molecules
 
     def __getitem__(self, idx):
-        smiles = self.smiles[idx]
+        smiles = self.smiles_dict[idx]  # Retrieve SMILES separately
         mol = Chem.MolFromSmiles(smiles)
 
         adj = generate_adjacency_matrix(mol)
@@ -49,6 +49,8 @@ class MolecularDataset(Dataset):
         return (
             torch.tensor(adj_normalized, dtype=torch.float32),
             torch.tensor(padded_features, dtype=torch.float32),
-            target,
             torch.tensor(num_atoms, dtype=torch.int64),
+            target,
+            idx  # Instead of smiles, return the index
         )
+
